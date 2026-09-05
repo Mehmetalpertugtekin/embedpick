@@ -13,12 +13,20 @@ def run_benchmark(
     k=5,
     repeats=5,
     include_baseline=True,
+    use_presets=True,
     verbose=False,
 ):
     retrievers = []
     if include_baseline:
         retrievers.append(BM25Retriever())
-    retrievers += [EmbeddingRetriever(name) for name in model_names]
+
+    for name in model_names:
+        if use_presets:
+            retrievers.append(EmbeddingRetriever(name))
+        else:
+            # Önekler kapalı: modelin belgelenmiş kullanım kuralı yok sayılıyor.
+            # Yanlış yapılandırmanın maliyetini ölçmek için.
+            retrievers.append(EmbeddingRetriever(name, query_prefix="", doc_prefix=""))
 
     satirlar = []
     sorgu_bazli = {}
@@ -74,7 +82,9 @@ def report(df, sorgu_bazli, k):
         "\n     (en hızlı sinirsel model = 1.00x)."
     )
 
-    ortak = consensus_failures(sorgu_bazli)
+    # Tek yöntem varken "hiçbiri bulamadı" demek anlamsız; uyarının değeri
+    # birden fazla yöntemin aynı sorguda batmasından geliyor.
+    ortak = consensus_failures(sorgu_bazli) if len(sorgu_bazli) > 1 else []
     if ortak:
         print(
             f"\nHiçbir yöntemin ilk {k} sonuçta bulamadığı sorgular:"

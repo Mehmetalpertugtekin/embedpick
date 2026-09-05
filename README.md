@@ -45,11 +45,20 @@ embedding model is not better than keyword search, and nobody checks.**
 
 ## Findings from the sample dataset
 
-**Configuration mattered more than model choice.** The e5 family expects
-`query: ` and `passage: ` prefixes on input text. Without them, e5 missed
-queries it otherwise ranks first — same model, same data, same hardware.
-A misconfigured model is indistinguishable from a bad model. embedpick applies
-known prefixes automatically and warns on unrecognised e5 variants.
+**Documented configuration is not always the right configuration.** The e5
+model card specifies `query: ` and `passage: ` prefixes on input text. Applying
+them on this dataset *lowered* recall@5 from 0.750 to 0.692 and MRR from 0.792
+to 0.708 — same model, same data, same hardware.
+
+A plausible reason: these documents are short, five to eight words each, so an
+English prefix takes up a large share of every one of them. Whatever the cause,
+the recommended setting cost about six points here, and nothing short of
+measuring on your own data would have shown it.
+
+embedpick applies known prefixes by default, following the model authors'
+instructions, and `--no-presets` turns them off so you can check. Across 26
+queries the gap is worth roughly one and a half queries, so read the direction
+as suggestive rather than settled.
 
 **BM25 and embeddings fail on different queries.** On `ödeme yaparken sorun`
 ("problem while paying") BM25 scored 1.00 and MiniLM scored 0.00. On

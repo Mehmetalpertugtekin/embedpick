@@ -42,6 +42,14 @@ def build_parser():
         help="BM25 kelime bazlı baseline'ı atla (önerilmez)",
     )
     p.add_argument(
+        "--no-presets",
+        action="store_true",
+        help=(
+            "Bilinen model öneklerini uygulama. e5 gibi önek bekleyen modeller "
+            "düşük skor alır; yanlış yapılandırmanın maliyetini ölçmek için."
+        ),
+    )
+    p.add_argument(
         "--verbose",
         action="store_true",
         help="Her sorgunun sonucunu tek tek yazdır",
@@ -70,6 +78,7 @@ def main(argv=None):
         k=args.k,
         repeats=args.repeats,
         include_baseline=not args.no_baseline,
+        use_presets=not args.no_presets,
         verbose=args.verbose,
     )
 

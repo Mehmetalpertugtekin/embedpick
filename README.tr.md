@@ -46,12 +46,20 @@ etmiyor.**
 
 ## Örnek veri setinden çıkan bulgular
 
-**Yapılandırma, model seçiminden daha çok fark yarattı.** e5 ailesi girdi
-metinlerinin başına `query: ` ve `passage: ` öneki bekliyor. Önek konmadığında
-e5, normalde birinci sıraya koyduğu sorguları hiç bulamadı — aynı model, aynı
-veri, aynı donanım. Yanlış yapılandırılmış bir model, kötü bir modelden ayırt
-edilemez. embedpick bilinen önekleri kendiliğinden uyguluyor ve tanımadığı e5
-varyantlarında uyarı veriyor.
+**Belgelenmiş yapılandırma her zaman doğru yapılandırma değil.** e5 model
+kartı, girdi metinlerinin başına `query: ` ve `passage: ` öneki konmasını
+söylüyor. Bu veri setinde önekleri uygulamak recall@5'i 0.750'den 0.692'ye,
+MRR'ı 0.792'den 0.708'e *düşürdü* — aynı model, aynı veri, aynı donanım.
+
+Olası sebep: buradaki dokümanlar kısa, her biri beş-sekiz kelime, dolayısıyla
+İngilizce önek her birinin kayda değer bir kısmını kaplıyor. Sebep ne olursa
+olsun, önerilen ayar burada yaklaşık altı puana mal oldu ve bunu kendi verinizde
+ölçmeden görmenin yolu yoktu.
+
+embedpick bilinen önekleri, model yazarlarının talimatını izleyerek, varsayılan
+olarak uyguluyor; `--no-presets` ile kapatıp kendiniz kontrol edebilirsiniz.
+26 sorguda bu fark yaklaşık bir buçuk sorguya denk geliyor, o yüzden yönü
+gösterge olarak okuyun, kesin sonuç olarak değil.
 
 **BM25 ile embedding farklı sorgularda batıyor.** `ödeme yaparken sorun`
 sorgusunda BM25 1.00, MiniLM 0.00 aldı. `sahte ürün şüphesi` sorgusunda tam
