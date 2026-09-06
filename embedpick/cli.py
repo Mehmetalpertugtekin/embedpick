@@ -2,10 +2,20 @@
 
 import argparse
 import sys
+from importlib import resources
 
 from .benchmark import report, run_benchmark
 from .data import load_corpus, load_queries, validate
 from .retrievers import DEFAULT_MODELS
+
+
+def sample_path(name):
+    """Pakete gömülü örnek veri dosyasının yolu.
+
+    Paket pip ile kurulduğunda çalışma dizininde data/ klasörü olmaz,
+    o yüzden varsayılan veri kurulum dizininden okunuyor.
+    """
+    return str(resources.files("embedpick") / "sample_data" / name)
 
 
 def build_parser():
@@ -18,13 +28,13 @@ def build_parser():
     )
     p.add_argument(
         "--corpus",
-        default="data/corpus.csv",
-        help="Aranacak dokümanlar (sütunlar: id,text)",
+        help="Aranacak dokümanlar (sütunlar: id,text). "
+        "Verilmezse pakete gömülü örnek veri kullanılır.",
     )
     p.add_argument(
         "--queries",
-        default="data/queries.csv",
-        help="Sorgular ve doğru cevaplar (sütunlar: query,relevant_ids)",
+        help="Sorgular ve doğru cevaplar (sütunlar: query,relevant_ids). "
+        "Verilmezse pakete gömülü örnek veri kullanılır.",
     )
     p.add_argument(
         "--models",
@@ -61,9 +71,15 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
 
+    corpus_path = args.corpus or sample_path("corpus.csv")
+    queries_path = args.queries or sample_path("queries.csv")
+
+    if args.corpus is None and args.queries is None:
+        print("Kendi veriniz verilmedi, pakete gömülü örnek veri kullanılıyor.")
+
     try:
-        corpus = load_corpus(args.corpus)
-        queries = load_queries(args.queries)
+        corpus = load_corpus(corpus_path)
+        queries = load_queries(queries_path)
         validate(corpus, queries)
     except (FileNotFoundError, ValueError) as exc:
         print(f"Hata: {exc}", file=sys.stderr)

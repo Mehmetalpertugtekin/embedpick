@@ -1,0 +1,5 @@
+model,recall@5,mrr@5,docs_per_sec,dim,index_mb,rel_speed
+BM25 (baseline),0.564,0.564,226486.3,0,0.00,-
+paraphrase-multilingual-MiniLM-L12-v2,0.615,0.596,340.4,384,0.11,1.00x
+multilingual-e5-small,0.692,0.708,304.1,384,0.11,0.89x
+turkish-embedding-model,0.846,0.865,103.0,768,0.21,0.30x

@@ -1,0 +1,5 @@
+# Hugging Face Spaces için requirements.txt içeriği.
+# Yayınlanmış paketi ve gradio'yu getirir; spaces kütüphanesi
+# ZeroGPU donanımı için gereklidir.
+embedpick[ui]
+spaces

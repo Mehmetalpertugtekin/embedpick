@@ -174,7 +174,7 @@ model, aynı korpusta 384 boyutlunun iki katı bellek ister.
 
 ## Örnek veri seti
 
-`data/` klasöründe dokuz temaya yayılmış 72 sentetik Türkçe müşteri destek
+`embedpick/sample_data/` klasöründe dokuz temaya yayılmış 72 sentetik Türkçe müşteri destek
 mesajı (kargo, iade, ödeme, hesap, ürün kalitesi, kampanya, garanti, sipariş
 yönetimi, destek) ve 26 etiketli sorgu var. Kazınmadı, yazıldı; bu yüzden
 lisans veya gizlilik kısıtı taşımıyor.

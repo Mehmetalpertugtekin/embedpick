@@ -172,7 +172,7 @@ Two things happen automatically:
 
 ## Sample dataset
 
-`data/` contains 72 synthetic Turkish customer-support messages across nine
+`embedpick/sample_data/` contains 72 synthetic Turkish customer-support messages across nine
 themes (shipping, returns, payment, account, product quality, promotions,
 warranty, order management, support) and 26 labelled queries. It is written,
 not scraped, so it carries no licensing or privacy constraints.
