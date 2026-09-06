@@ -104,6 +104,17 @@ python -m embedpick --out results.csv
 
 `python -m embedpick --help` lists every flag.
 
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Tests do not download any models, so they run in seconds. Make sure your
+virtual environment is active first — a missing `rank_bm25` in the test output
+usually means you installed into the system Python by mistake.
+
 ## Data format
 
 **corpus.csv** — the documents to search over:

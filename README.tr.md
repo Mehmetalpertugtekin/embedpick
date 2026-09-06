@@ -106,6 +106,17 @@ python -m embedpick --out sonuclar.csv
 
 Tüm parametreler için: `python -m embedpick --help`
 
+## Geliştirme
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Testler model indirmiyor, saniyeler içinde bitiyor. Önce sanal ortamınızın
+aktif olduğundan emin olun — test çıktısında `rank_bm25` bulunamadı hatası
+görüyorsanız genelde sebep paketlerin sistem Python'ına kurulmuş olmasıdır.
+
 ## Veri formatı
 
 **corpus.csv** — aranacak dokümanlar:

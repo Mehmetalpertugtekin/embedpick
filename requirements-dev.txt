@@ -1,0 +1,7 @@
+# Test bağımlılıkları. Model indirmeyi gerektiren ağır paketler
+# (torch, sentence-transformers, faiss) burada yok: testler onlara
+# dokunmadan çalışacak şekilde yazıldı, böylece CI hızlı kalıyor.
+pandas
+numpy
+rank-bm25
+pytest
