@@ -1,5 +1,5 @@
 # embedpick
-
+![tests](https://github.com/Mehmetalpertugtekin/embedpick/actions/workflows/tests.yml/badge.svg)
 Benchmark embedding models on **your own data**, not on someone else's leaderboard.
 
 [Türkçe README](README.tr.md)
