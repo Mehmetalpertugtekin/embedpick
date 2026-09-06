@@ -1,9 +1,8 @@
 # embedpick
-![tests](https://github.com/Mehmetalpertugtekin/embedpick/actions/workflows/tests.yml/badge.svg)
 
 Benchmark embedding models on **your own data**, not on someone else's leaderboard.
 
-[Türkçe README](README.tr.md)
+[Türkçe README](https://github.com/Mehmetalpertugtekin/embedpick/blob/main/README.tr.md) · [Try it online](https://huggingface.co/spaces/tugtekinalper/embedpick)
 
 ## Why
 
@@ -77,7 +76,13 @@ stayed within about 20%. Report `rel_speed` when comparing across machines.
 ## Install
 
 ```bash
-git clone https://github.com/Mehmetalpertugtekin/embedpick.git
+pip install embedpick
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/embedpick.git
 cd embedpick
 python -m venv .venv
 .venv\Scripts\activate        # Windows
@@ -158,6 +163,19 @@ worse. Which model is "better" depends on what you are building.
 
 **dim** and **index_mb** — vector width and index size. A 768-dimensional
 model needs twice the memory of a 384-dimensional one at the same corpus size.
+
+## Web interface
+
+A Gradio app is included. It shows the sample-dataset results immediately and
+lets you upload your own CSVs to run a live benchmark.
+
+```bash
+pip install embedpick[ui]
+python app.py
+```
+
+A hosted version runs at
+[huggingface.co/spaces/tugtekinalper/embedpick](https://huggingface.co/spaces/tugtekinalper/embedpick).
 
 ## Label checking
 

@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "embedpick"
-version = "0.1.0"
+version = "0.1.1"
 description = "Benchmark embedding models on your own data, with a keyword-search baseline"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Mehmet Alper Tuğtekin" }]
+authors = [{ name = "Mehmet Alper Tugtekin" }]
 keywords = [
     "embeddings",
     "benchmark",

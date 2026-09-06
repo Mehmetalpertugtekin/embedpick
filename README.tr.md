@@ -1,9 +1,8 @@
 # embedpick
-![tests](https://github.com/Mehmetalpertugtekin/embedpick/actions/workflows/tests.yml/badge.svg)
 
 Embedding modellerini **kendi verinizde** kıyaslayın, başkasının sıralamasında değil.
 
-[English README](README.md)
+[English README](https://github.com/Mehmetalpertugtekin/embedpick/blob/main/README.md) · [Çevrimiçi deneyin](https://huggingface.co/spaces/tugtekinalper/embedpick)
 
 ## Neden
 
@@ -79,7 +78,13 @@ kullanın.
 ## Kurulum
 
 ```bash
-git clone https://github.com/Mehmetalpertugtekin/embedpick.git
+pip install embedpick
+```
+
+Kaynaktan kurmak için:
+
+```bash
+git clone https://github.com/KULLANICI_ADINIZ/embedpick.git
 cd embedpick
 python -m venv .venv
 .venv\Scripts\activate        # Windows
@@ -160,6 +165,19 @@ sıraladı. Hangi modelin "daha iyi" olduğu, ne inşa ettiğinize bağlı.
 
 **dim** ve **index_mb** — vektör genişliği ve indeks boyutu. 768 boyutlu bir
 model, aynı korpusta 384 boyutlunun iki katı bellek ister.
+
+## Web arayüzü
+
+Pakete bir Gradio arayüzü dahil. Açılışta örnek veri setindeki sonuçları
+gösteriyor, isteyen kendi CSV dosyalarını yükleyip canlı çalıştırabiliyor.
+
+```bash
+pip install embedpick[ui]
+python app.py
+```
+
+Yayındaki sürüm:
+[huggingface.co/spaces/tugtekinalper/embedpick](https://huggingface.co/spaces/tugtekinalper/embedpick)
 
 ## Etiket kontrolü
 
