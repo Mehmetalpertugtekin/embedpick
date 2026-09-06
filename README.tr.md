@@ -1,5 +1,6 @@
 # embedpick
 ![tests](https://github.com/Mehmetalpertugtekin/embedpick/actions/workflows/tests.yml/badge.svg)
+
 Embedding modellerini **kendi verinizde** kıyaslayın, başkasının sıralamasında değil.
 
 [English README](README.md)
