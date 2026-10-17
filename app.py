@@ -45,14 +45,15 @@ def paket_dosyasi(ad):
 # yalnızca işlemci üzerinde ölçüldü.
 YEDEK_SONUCLAR = pd.DataFrame(
     [
-        ["BM25 (baseline)", 0.564, 0.564, 226486.3, 0, 0.00, "-"],
-        ["paraphrase-multilingual-MiniLM-L12-v2", 0.615, 0.596, 340.4, 384, 0.11, "1.00x"],
-        ["multilingual-e5-small", 0.692, 0.708, 304.1, 384, 0.11, "0.89x"],
-        ["turkish-embedding-model", 0.846, 0.865, 103.0, 768, 0.21, "0.30x"],
+        ["BM25 (baseline, simple stem)", 0.654, "[0.50, 0.81]", 0.622, 32000.0, 0, 0.00, "-"],
+        ["paraphrase-multilingual-MiniLM-L12-v2", 0.615, "[0.46, 0.77]", 0.596, 374.0, 384, 0.11, "1.00x"],
+        ["multilingual-e5-small", 0.692, "[0.56, 0.81]", 0.708, 322.0, 384, 0.11, "0.86x"],
+        ["turkish-embedding-model", 0.846, "[0.73, 0.94]", 0.865, 119.0, 768, 0.21, "0.32x"],
     ],
     columns=[
         "model",
         "recall@5",
+        "recall@5_ci",
         "mrr@5",
         "docs_per_sec",
         "dim",
@@ -94,15 +95,24 @@ HAZIR_ACIKLAMA = """
 ### Örnek veri setindeki sonuçlar
 
 72 sentetik Türkçe müşteri destek mesajı, 26 etiketli sorgu, k=5.
+Baseline gövdelenmiş halde (`--stemmer simple`) çalıştırıldı.
 
-İlk iki satıra dikkat: MiniLM, kelime aramasına göre 5 puanlık kazanç için
-yaklaşık 600 kat indeksleme süresi ödüyor. Türkçe'ye özel model ise +28 puanla
-bedelini hak ediyor. Yani çıkarım "embedding gereksiz" değil — **kötü seçilmiş
-bir embedding modeli kelime aramasından iyi değil ve kimse bunu kontrol
-etmiyor.**
+Baseline'a göre eşleştirilmiş fark, %95 güven aralığıyla:
 
-`docs_per_sec` makineye göre değişir; makineler arası kıyas için `rel_speed`
-sütununu kullanın.
+| Model | fark | %95 GA | sonuç |
+|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 | −0.038 | [−0.192, +0.115] | gösterilemedi |
+| multilingual-e5-small | +0.038 | [−0.115, +0.212] | gösterilemedi |
+| trmteb/turkish-embedding-model | **+0.192** | [+0.058, +0.346] | **anlamlı** |
+
+Üç modelden ikisinin bu veride kelime aramasını geçtiği gösterilemiyor;
+MiniLM'in nokta tahmini sıfırın yanlış tarafında. Yani çıkarım "embedding
+gereksiz" değil — **kötü seçilmiş bir embedding modeli kelime aramasından iyi
+değil ve kimse bunu kontrol etmiyor.**
+
+"Gösterilemedi", fark yok demek değil; 26 sorgunun o farkı göstermeye
+yetmediği demek. `docs_per_sec` makineye göre değişir; makineler arası kıyas
+için `rel_speed` sütununu kullanın.
 """
 
 NASIL = """

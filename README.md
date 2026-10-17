@@ -24,24 +24,52 @@ network involved. If an embedding model cannot beat it, running that model is
 wasted compute.
 
 Results on the included Turkish customer-support dataset (72 documents,
-26 queries, k=5):
+26 queries, k=5), with the baseline stemmed (`--stemmer simple`):
 
-| Model | recall@5 | MRR@5 | docs/sec | dim | rel. speed |
-|---|---|---|---|---|---|
-| BM25 (baseline) | 0.564 | 0.564 | ~226,000 | — | — |
-| paraphrase-multilingual-MiniLM-L12-v2 | 0.615 | 0.596 | 340 | 384 | 1.00x |
-| multilingual-e5-small | 0.692 | 0.708 | 304 | 384 | 0.89x |
-| trmteb/turkish-embedding-model | **0.846** | **0.865** | 103 | 768 | 0.30x |
+| Model | recall@5 | 95% CI | MRR@5 | docs/sec | dim | rel. speed |
+|---|---|---|---|---|---|---|
+| BM25 (baseline, simple stem) | 0.654 | [0.50, 0.81] | 0.622 | ~32,000 | — | — |
+| paraphrase-multilingual-MiniLM-L12-v2 | 0.615 | [0.46, 0.77] | 0.596 | 374 | 384 | 1.00x |
+| multilingual-e5-small | 0.692 | [0.56, 0.81] | 0.708 | 322 | 384 | 0.86x |
+| trmteb/turkish-embedding-model | **0.846** | [0.73, 0.94] | **0.865** | 119 | 768 | 0.32x |
 
-Read that first two rows carefully. MiniLM buys a 5-point recall gain over
-keyword matching, and pays roughly 600x the indexing time for it. On this
-dataset that trade is hard to justify.
+Those intervals overlap, but that is not how to read them: both methods answer
+the same 26 queries, so the uncertainty of the *difference* is smaller than the
+uncertainty of either column. The paired comparison is the number to use:
 
-The Turkish-specific model is a different story: +28 points over the baseline
-is a real jump, and worth the 3x slowdown against the other neural models.
+| Model | difference vs baseline | 95% CI | verdict |
+|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 | −0.038 | [−0.192, +0.115] | not shown |
+| multilingual-e5-small | +0.038 | [−0.115, +0.212] | not shown |
+| trmteb/turkish-embedding-model | **+0.192** | [+0.058, +0.346] | **significant** |
+
+Read those rows carefully. Two of the three embedding models cannot be shown to
+beat keyword search on this data at all, and MiniLM's point estimate is on the
+wrong side of zero — while costing roughly 90x the indexing time. The
+Turkish-specific model is the one real result here: its advantage survives both
+a properly built baseline and a significance test.
+
+"Not shown" means the dataset was too small to settle it, not that the methods
+are equal. With 26 queries that is a low bar to clear, which is itself the
+lesson.
 
 So the lesson is not "embeddings are overrated." It is: **a badly chosen
 embedding model is not better than keyword search, and nobody checks.**
+
+### The baseline needs the same care as the model
+
+An earlier version of this table reported BM25 at 0.564 and a +28 point gap,
+because `tr_tokenize` only lowercased. Turkish is agglutinative, so `iade` and
+`iadesi` were two unrelated terms and the baseline was being handicapped by its
+own tokenizer. Adding stemming lifted it from 0.564 to 0.654 and cut the
+headline gap to +19 points.
+
+The conclusion survived; the claim did not. In a comparison, the weakest link
+is the sloppiness on your own side, because nobody else is positioned to catch
+it. `--stemmer none|simple|zemberek` is there so you can see what your baseline
+is actually doing — and the improvement it buys is itself only +0.090 with a CI
+of [−0.058, +0.231], so even fixing the baseline is not separable from noise at
+this sample size.
 
 ## Findings from the sample dataset
 
@@ -57,8 +85,9 @@ measuring on your own data would have shown it.
 
 embedpick applies known prefixes by default, following the model authors'
 instructions, and `--no-presets` turns them off so you can check. Across 26
-queries the gap is worth roughly one and a half queries, so read the direction
-as suggestive rather than settled.
+queries that gap is worth roughly one and a half queries — well inside the
+noise, so treat it as a question worth testing on your own data rather than a
+finding. Run it with CIs before acting on it.
 
 **BM25 and embeddings fail on different queries.** On `ödeme yaparken sorun`
 ("problem while paying") BM25 scored 1.00 and MiniLM scored 0.00. On
@@ -71,7 +100,15 @@ A benchmark that cannot separate models tells you nothing about them.
 
 **Absolute timings are unreliable; ratios are not.** Across repeated runs on
 the same machine, `docs/sec` varied by up to 4x while the ratio between models
-stayed within about 20%. Report `rel_speed` when comparing across machines.
+stayed within about 20%. Report `rel_speed` when comparing across machines, and
+note that the table rounds throughput to three significant digits on purpose —
+the precision of a number is a claim about how much you trust it.
+
+**A difference without an interval is a hypothesis, not a finding.** Every
+quality column carries a bootstrap 95% CI, and every model is compared to the
+baseline with a paired bootstrap. On 26 queries most differences do not clear
+that bar. The honest move is to report it and add queries, not to drop the
+column.
 
 ## Install
 
@@ -104,11 +141,29 @@ python -m embedpick --corpus my_docs.csv --queries my_queries.csv
 # pick models, evaluate top 10, show per-query detail
 python -m embedpick --models intfloat/multilingual-e5-base -k 10 --verbose
 
+# give the keyword baseline Turkish stemming before you trust the gap
+python -m embedpick --stemmer simple
+
 # save the table
 python -m embedpick --out results.csv
 ```
 
 `python -m embedpick --help` lists every flag.
+
+### Turkish stemming for the baseline
+
+`--stemmer` controls how the BM25 baseline tokenizes:
+
+| value | what it does |
+|---|---|
+| `none` | lowercase only — the baseline will look worse than it is |
+| `simple` | a dependency-free suffix stripper, written out in `embedpick/stemmers.py` |
+| `zemberek` | real morphological analysis; `pip install embedpick[zemberek]`, needs a JVM |
+
+`simple` over-strips at times (`fatura` → `fatur`) but does so consistently
+(`faturamı` → `fatur` too), which is what retrieval needs. It is deliberately
+readable rather than clever: you should be able to see what your baseline is
+doing.
 
 ## Development
 
