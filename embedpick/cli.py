@@ -7,6 +7,7 @@ from importlib import resources
 from .benchmark import report, run_benchmark
 from .data import load_corpus, load_queries, validate
 from .retrievers import DEFAULT_MODELS
+from .stemmers import CHOICES as STEMMER_CHOICES
 
 
 def sample_path(name):
@@ -60,6 +61,17 @@ def build_parser():
         ),
     )
     p.add_argument(
+        "--stemmer",
+        choices=STEMMER_CHOICES,
+        default="none",
+        help=(
+            "BM25 baseline'ında Türkçe gövdeleme. Türkçe sondan eklemeli "
+            "olduğu için gövdelemesiz baseline olduğundan zayıf görünür; "
+            "'simple' bağımlılıksız kaba bir ayıklayıcı, 'zemberek' gerçek "
+            "morfolojik çözümleme yapar (ayrı kurulum ve Java gerektirir)."
+        ),
+    )
+    p.add_argument(
         "--verbose",
         action="store_true",
         help="Her sorgunun sonucunu tek tek yazdır",
@@ -96,6 +108,7 @@ def main(argv=None):
         include_baseline=not args.no_baseline,
         use_presets=not args.no_presets,
         verbose=args.verbose,
+        stemmer=args.stemmer,
     )
 
     report(df, sorgu_bazli, args.k)

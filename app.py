@@ -31,6 +31,7 @@ from embedpick.benchmark import run_benchmark
 from embedpick.data import load_corpus, load_queries, validate
 from embedpick.metrics import consensus_failures
 from embedpick.retrievers import DEFAULT_MODELS
+from embedpick.stemmers import CHOICES as STEMMER_CHOICES
 
 REPO = "https://github.com/Mehmetalpertugtekin/embedpick"
 
@@ -44,14 +45,15 @@ def paket_dosyasi(ad):
 # yalnızca işlemci üzerinde ölçüldü.
 YEDEK_SONUCLAR = pd.DataFrame(
     [
-        ["BM25 (baseline)", 0.564, 0.564, 226486.3, 0, 0.00, "-"],
-        ["paraphrase-multilingual-MiniLM-L12-v2", 0.615, 0.596, 340.4, 384, 0.11, "1.00x"],
-        ["multilingual-e5-small", 0.692, 0.708, 304.1, 384, 0.11, "0.89x"],
-        ["turkish-embedding-model", 0.846, 0.865, 103.0, 768, 0.21, "0.30x"],
+        ["BM25 (baseline, simple stem)", 0.654, "[0.50, 0.81]", 0.622, 32000.0, 0, 0.00, "-"],
+        ["paraphrase-multilingual-MiniLM-L12-v2", 0.615, "[0.46, 0.77]", 0.596, 374.0, 384, 0.11, "1.00x"],
+        ["multilingual-e5-small", 0.692, "[0.56, 0.81]", 0.708, 322.0, 384, 0.11, "0.86x"],
+        ["turkish-embedding-model", 0.846, "[0.73, 0.94]", 0.865, 119.0, 768, 0.21, "0.32x"],
     ],
     columns=[
         "model",
         "recall@5",
+        "recall@5_ci",
         "mrr@5",
         "docs_per_sec",
         "dim",
@@ -93,15 +95,24 @@ HAZIR_ACIKLAMA = """
 ### Örnek veri setindeki sonuçlar
 
 72 sentetik Türkçe müşteri destek mesajı, 26 etiketli sorgu, k=5.
+Baseline gövdelenmiş halde (`--stemmer simple`) çalıştırıldı.
 
-İlk iki satıra dikkat: MiniLM, kelime aramasına göre 5 puanlık kazanç için
-yaklaşık 600 kat indeksleme süresi ödüyor. Türkçe'ye özel model ise +28 puanla
-bedelini hak ediyor. Yani çıkarım "embedding gereksiz" değil — **kötü seçilmiş
-bir embedding modeli kelime aramasından iyi değil ve kimse bunu kontrol
-etmiyor.**
+Baseline'a göre eşleştirilmiş fark, %95 güven aralığıyla:
 
-`docs_per_sec` makineye göre değişir; makineler arası kıyas için `rel_speed`
-sütununu kullanın.
+| Model | fark | %95 GA | sonuç |
+|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 | −0.038 | [−0.192, +0.115] | gösterilemedi |
+| multilingual-e5-small | +0.038 | [−0.115, +0.212] | gösterilemedi |
+| trmteb/turkish-embedding-model | **+0.192** | [+0.058, +0.346] | **anlamlı** |
+
+Üç modelden ikisinin bu veride kelime aramasını geçtiği gösterilemiyor;
+MiniLM'in nokta tahmini sıfırın yanlış tarafında. Yani çıkarım "embedding
+gereksiz" değil — **kötü seçilmiş bir embedding modeli kelime aramasından iyi
+değil ve kimse bunu kontrol etmiyor.**
+
+"Gösterilemedi", fark yok demek değil; 26 sorgunun o farkı göstermeye
+yetmediği demek. `docs_per_sec` makineye göre değişir; makineler arası kıyas
+için `rel_speed` sütununu kullanın.
 """
 
 NASIL = """
@@ -134,7 +145,9 @@ edenler onlar.
 
 
 @gpu_gorevi
-def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, presets):
+def calistir(
+    corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, presets, stemmer
+):
     if corpus_dosya is None or queries_dosya is None:
         return None, None, "İki CSV dosyasını da yükleyin."
 
@@ -161,6 +174,7 @@ def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, pres
             repeats=3,
             include_baseline=baseline,
             use_presets=presets,
+            stemmer=stemmer,
         )
     except Exception as exc:
         return None, None, f"Çalıştırma hatası:\n\n```\n{type(exc).__name__}: {exc}\n```"
@@ -176,6 +190,17 @@ def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, pres
         notlar.append(
             "Model önekleri kapalı. e5 gibi önek bekleyen modeller düşük skor alır."
         )
+    if baseline and stemmer == "none":
+        notlar.append(
+            "BM25 gövdelemesiz çalıştı. Türkçe sondan eklemeli olduğu için "
+            "baseline olduğundan zayıf görünür ve modellerle arasındaki fark "
+            "olduğundan büyük çıkar. `simple` ile tekrar deneyin."
+        )
+    notlar.append(
+        f"`recall@{int(k)}_ci`, {len(queries)} sorgu üzerinden bootstrap ile "
+        "hesaplanmış yüzde 95 güven aralığıdır. Aralıklar üst üste biniyorsa "
+        "aradaki fark bu veri setinde gösterilememiştir."
+    )
 
     ortak = consensus_failures(sorgu_bazli) if len(sorgu_bazli) > 1 else []
     if ortak:
@@ -226,6 +251,16 @@ with gr.Blocks(title="embedpick") as demo:
                 value=True, label="Bilinen model öneklerini uygula"
             )
 
+        stemmer_secimi = gr.Radio(
+            choices=list(STEMMER_CHOICES),
+            value="simple",
+            label="BM25 baseline'ında Türkçe gövdeleme",
+            info=(
+                "Gövdelemesiz baseline 'iade' ile 'iadesi'yi ilgisiz iki terim "
+                "sayar ve olduğundan zayıf görünür. zemberek ayrı kurulum ister."
+            ),
+        )
+
         gr.Markdown(
             "İlk çalıştırmada modeller indirilir, birkaç dakika sürebilir. "
             "Sonraki çalıştırmalar önbellekten okur."
@@ -249,6 +284,7 @@ with gr.Blocks(title="embedpick") as demo:
             k_secimi,
             baseline_secimi,
             preset_secimi,
+            stemmer_secimi,
         ],
         outputs=[sonuc_tablosu, detay_tablosu, durum],
     )

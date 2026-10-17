@@ -24,25 +24,53 @@ eşleştirme algoritması. Bir embedding modeli onu geçemiyorsa, o modeli
 çalıştırmak için harcanan hesap gücü boşa gidiyor demektir.
 
 Pakete dahil Türkçe müşteri destek veri setindeki sonuçlar (72 doküman,
-26 sorgu, k=5):
+26 sorgu, k=5), baseline gövdelenmiş halde (`--stemmer simple`):
 
-| Model | recall@5 | MRR@5 | doküman/sn | boyut | göreli hız |
-|---|---|---|---|---|---|
-| BM25 (baseline) | 0.564 | 0.564 | ~226.000 | — | — |
-| paraphrase-multilingual-MiniLM-L12-v2 | 0.615 | 0.596 | 340 | 384 | 1.00x |
-| multilingual-e5-small | 0.692 | 0.708 | 304 | 384 | 0.89x |
-| trmteb/turkish-embedding-model | **0.846** | **0.865** | 103 | 768 | 0.30x |
+| Model | recall@5 | %95 GA | MRR@5 | doküman/sn | boyut | göreli hız |
+|---|---|---|---|---|---|---|
+| BM25 (baseline, simple stem) | 0.654 | [0.50, 0.81] | 0.622 | ~32.000 | — | — |
+| paraphrase-multilingual-MiniLM-L12-v2 | 0.615 | [0.46, 0.77] | 0.596 | 374 | 384 | 1.00x |
+| multilingual-e5-small | 0.692 | [0.56, 0.81] | 0.708 | 322 | 384 | 0.86x |
+| trmteb/turkish-embedding-model | **0.846** | [0.73, 0.94] | **0.865** | 119 | 768 | 0.32x |
 
-İlk iki satıra dikkatli bakın. MiniLM, kelime aramasına göre 5 puanlık bir
-kazanç sağlıyor ve bunun için yaklaşık 600 kat indeksleme süresi ödüyor. Bu
-veri setinde o takası savunmak zor.
+Aralıklar üst üste biniyor ama bunu "fark yok" diye okumak yanlış olur: iki
+yöntem de aynı 26 sorguyu cevaplıyor, dolayısıyla *farkın* belirsizliği tek tek
+sütunların belirsizliğinden küçük. Karar verirken bakılacak sayı eşleştirilmiş
+karşılaştırma:
 
-Türkçe'ye özel model ise başka bir hikâye: baseline'a göre +28 puan gerçek bir
-sıçrama ve diğer sinirsel modellere göre 3 kat yavaşlamayı hak ediyor.
+| Model | baseline'a göre fark | %95 GA | sonuç |
+|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 | −0.038 | [−0.192, +0.115] | gösterilemedi |
+| multilingual-e5-small | +0.038 | [−0.115, +0.212] | gösterilemedi |
+| trmteb/turkish-embedding-model | **+0.192** | [+0.058, +0.346] | **anlamlı** |
+
+Bu satırlara dikkatli bakın. Üç embedding modelinden ikisinin bu veride kelime
+aramasını geçtiği gösterilemiyor; MiniLM'in nokta tahmini ise sıfırın yanlış
+tarafında — üstelik yaklaşık 90 kat indeksleme süresi ödeyerek. Buradaki tek
+gerçek bulgu Türkçe'ye özel model: üstünlüğü hem düzgün kurulmuş bir baseline'a
+hem de anlamlılık testine dayanıyor.
+
+"Gösterilemedi", yöntemlerin eşit olduğu anlamına gelmez; veri setinin o farkı
+göstermeye yetmediği anlamına gelir. 26 sorguyla bu eşik zaten alçak, asıl ders
+de bu.
 
 Yani çıkarım "embedding gereksiz" değil. Çıkarım şu: **kötü seçilmiş bir
 embedding modeli kelime aramasından iyi değildir ve kimse bunu kontrol
 etmiyor.**
+
+### Baseline'a da karşısındaki model kadar özen gerekiyor
+
+Bu tablonun daha eski bir sürümünde BM25 0.564 ve fark +28 puandı, çünkü
+`tr_tokenize` sadece küçük harfe çeviriyordu. Türkçe sondan eklemeli bir dil:
+`iade` ile `iadesi` birbiriyle ilgisiz iki terimdi ve baseline kendi
+tokenizer'ı tarafından sakatlanıyordu. Gövdeleme eklemek onu 0.564'ten 0.654'e
+çıkardı, manşetteki farkı +19 puana indirdi.
+
+Sonuç ayakta kaldı, iddia değişti. Bir kıyaslamada en zayıf halka kendi
+tarafınızdaki özensizliktir, çünkü onu yakalayacak konumda başka kimse yok.
+`--stemmer none|simple|zemberek` tam da baseline'ınızın ne yaptığını
+görebilmeniz için var — ve bu iyileştirmenin kendisi bile +0.090, güven aralığı
+[−0.058, +0.231], yani bu örneklem büyüklüğünde gürültüden ayırt edilemiyor.
 
 ## Örnek veri setinden çıkan bulgular
 
@@ -58,8 +86,9 @@ olsun, önerilen ayar burada yaklaşık altı puana mal oldu ve bunu kendi verin
 
 embedpick bilinen önekleri, model yazarlarının talimatını izleyerek, varsayılan
 olarak uyguluyor; `--no-presets` ile kapatıp kendiniz kontrol edebilirsiniz.
-26 sorguda bu fark yaklaşık bir buçuk sorguya denk geliyor, o yüzden yönü
-gösterge olarak okuyun, kesin sonuç olarak değil.
+26 sorguda bu fark yaklaşık bir buçuk sorguya denk geliyor — tamamen gürültünün
+içinde. Bir bulgu değil, kendi verinizde test etmeye değer bir soru olarak
+okuyun; harekete geçmeden önce güven aralığıyla birlikte ölçün.
 
 **BM25 ile embedding farklı sorgularda batıyor.** `ödeme yaparken sorun`
 sorgusunda BM25 1.00, MiniLM 0.00 aldı. `sahte ürün şüphesi` sorgusunda tam
@@ -73,7 +102,14 @@ söylemiyordur.
 **Mutlak süreler güvenilmez, oranlar güvenilir.** Aynı makinede tekrarlanan
 çalıştırmalarda `doküman/sn` 4 kata kadar oynadı, modeller arası oran ise
 yaklaşık %20 içinde kaldı. Makineler arası kıyas için `rel_speed` sütununu
-kullanın.
+kullanın. Tablonun hızı üç anlamlı basamağa yuvarlaması da bilinçli: bir
+sayının hassasiyeti, ona ne kadar güvendiğiniz hakkında bir iddiadır.
+
+**Aralığı olmayan fark bir bulgu değil, bir hipotezdir.** Her kalite sütunu
+bootstrap ile hesaplanmış %95 güven aralığı taşıyor ve her model baseline ile
+eşleştirilmiş olarak kıyaslanıyor. 26 sorguda farkların çoğu bu eşiği
+geçemiyor. Doğru hamle sütunu kaldırmak değil, bunu raporlayıp sorgu
+eklemek.
 
 ## Kurulum
 
@@ -111,6 +147,21 @@ python -m embedpick --out sonuclar.csv
 ```
 
 Tüm parametreler için: `python -m embedpick --help`
+
+### Baseline için Türkçe gövdeleme
+
+`--stemmer`, BM25 baseline'ının metni nasıl böldüğünü belirler:
+
+| değer | ne yapar |
+|---|---|
+| `none` | sadece küçük harfe çevirir — baseline olduğundan zayıf görünür |
+| `simple` | `embedpick/stemmers.py` içinde açıkça yazılı, bağımlılıksız ek ayıklayıcı |
+| `zemberek` | gerçek morfolojik çözümleme; `pip install embedpick[zemberek]`, Java gerektirir |
+
+`simple` zaman zaman fazla soyuyor (`fatura` → `fatur`) ama tutarlı soyuyor
+(`faturamı` da `fatur` oluyor), erişim açısından istenen de bu. Zekice değil,
+kasten okunabilir olacak şekilde yazıldı: baseline'ınızın ne yaptığını
+görebilmelisiniz.
 
 ## Geliştirme
 

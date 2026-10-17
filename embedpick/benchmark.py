@@ -2,8 +2,29 @@
 
 import pandas as pd
 
-from .metrics import consensus_failures, recall_at_k, score_all
+from .metrics import (
+    bootstrap_ci,
+    consensus_failures,
+    recall_at_k,
+    score_all,
+    significant_difference,
+)
 from .retrievers import BM25Retriever, EmbeddingRetriever
+
+
+def _significant_digits(value, digits=3):
+    """Ölçümü taşıyabileceği hassasiyete yuvarlar.
+
+    docs_per_sec çalıştırmalar arasında kat kat oynuyor; tabloya 226486.3
+    yazmak, o sayının son hanesine güvendiğimizi iddia etmek demek.
+    Bir sayının hassasiyeti, ona ne kadar güvendiğimiz hakkında bir iddiadır.
+    """
+    if value <= 0:
+        return 0.0
+    from math import floor, log10
+
+    basamak = digits - 1 - int(floor(log10(abs(value))))
+    return round(value, basamak)
 
 
 def run_benchmark(
@@ -15,10 +36,11 @@ def run_benchmark(
     include_baseline=True,
     use_presets=True,
     verbose=False,
+    stemmer="none",
 ):
     retrievers = []
     if include_baseline:
-        retrievers.append(BM25Retriever())
+        retrievers.append(BM25Retriever(stemmer=stemmer))
 
     for name in model_names:
         if use_presets:
@@ -45,12 +67,15 @@ def run_benchmark(
             )
         }
 
+        alt, ust = bootstrap_ci(sorgu_bazli[retriever.label].values())
+
         satirlar.append(
             {
                 "model": retriever.label,
                 f"recall@{k}": round(recall, 3),
+                f"recall@{k}_ci": f"[{alt:.2f}, {ust:.2f}]",
                 f"mrr@{k}": round(mrr, 3),
-                "docs_per_sec": round(maliyet["docs_per_sec"], 1),
+                "docs_per_sec": _significant_digits(maliyet["docs_per_sec"]),
                 "dim": maliyet["dim"],
                 "index_mb": round(maliyet["index_mb"], 2),
             }
@@ -72,6 +97,48 @@ def _add_relative_speed(satirlar):
         r["rel_speed"] = f"{r['docs_per_sec'] / en_hizli:.2f}x" if r["dim"] > 0 else "-"
 
 
+def baseline_comparison(sorgu_bazli):
+    """Her modeli BM25 baseline'ı ile eşleştirilmiş olarak kıyaslar.
+
+    Sütun bazlı güven aralıkları her yöntemin tek başına ne kadar oynadığını
+    gösterir ve üst üste binmeleri "fark yok" anlamına GELMEZ: aynı sorgular
+    üzerinde çalıştıkları için farkın belirsizliği, tek tek skorların
+    belirsizliğinden küçüktür. Karar vermek isteyen kişinin bakması gereken
+    sayı bu fonksiyonun döndürdüğü.
+    """
+    baseline = next((e for e in sorgu_bazli if e.startswith("BM25")), None)
+    if baseline is None or len(sorgu_bazli) < 2:
+        return None, []
+
+    sorgular = list(sorgu_bazli[baseline])
+    temel = [sorgu_bazli[baseline][q] for q in sorgular]
+
+    sonuclar = [
+        (etiket, significant_difference([skor[q] for q in sorgular], temel))
+        for etiket, skor in sorgu_bazli.items()
+        if etiket != baseline
+    ]
+    return baseline, sonuclar
+
+
+def _report_baseline_comparison(sorgu_bazli):
+    baseline, sonuclar = baseline_comparison(sorgu_bazli)
+    if not sonuclar:
+        return
+
+    print(f"\n{baseline} ile eşleştirilmiş fark (yüzde 95 güven aralığı):")
+    for etiket, s in sonuclar:
+        alt, ust = s["ci"]
+        karar = "anlamlı" if s["anlamli"] else "gösterilemedi"
+        print(f"  {etiket:<40} {s['fark']:+.3f}  [{alt:+.3f}, {ust:+.3f}]  {karar}")
+
+    if any(not s["anlamli"] for _, s in sonuclar):
+        print(
+            "  'gösterilemedi', farkın olmadığı anlamına gelmez; bu veri setinin"
+            "\n  o farkı göstermeye yetmediği anlamına gelir. Daha çok sorgu ekleyin."
+        )
+
+
 def report(df, sorgu_bazli, k):
     print()
     print(df.to_string(index=False))
@@ -80,7 +147,14 @@ def report(df, sorgu_bazli, k):
         "\nNot: docs_per_sec makineye ve o anki işlemci durumuna göre değişir."
         "\n     Makineler arası kıyas için rel_speed sütununu kullanın"
         "\n     (en hızlı sinirsel model = 1.00x)."
+        f"\n     recall@{k}_ci, {len(next(iter(sorgu_bazli.values()), {}))} sorgu"
+        " üzerinden bootstrap ile hesaplanmış yüzde 95 güven aralığıdır."
+        "\n     Her sütun tek başına ne kadar oynadığını gösterir; iki yöntemin"
+        "\n     FARKI için aşağıdaki eşleştirilmiş karşılaştırmaya bakın."
+        "\n     Üst üste binen aralıklar tek başına 'fark yok' demek değildir."
     )
+
+    _report_baseline_comparison(sorgu_bazli)
 
     # Tek yöntem varken "hiçbiri bulamadı" demek anlamsız; uyarının değeri
     # birden fazla yöntemin aynı sorguda batmasından geliyor.
