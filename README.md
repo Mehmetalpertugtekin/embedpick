@@ -82,12 +82,12 @@ pip install embedpick
 Or from source:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/embedpick.git
+git clone https://github.com/Mehmetalpertugtekin/embedpick.git
 cd embedpick
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 source .venv/bin/activate     # macOS / Linux
-pip install -r requirements.txt
+pip install -e .
 ```
 
 Python 3.9+.
