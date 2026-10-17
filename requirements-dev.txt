@@ -1,7 +1,13 @@
 # Test bağımlılıkları. Model indirmeyi gerektiren ağır paketler
-# (torch, sentence-transformers, faiss) burada yok: testler onlara
-# dokunmadan çalışacak şekilde yazıldı, böylece CI hızlı kalıyor.
+# (torch, sentence-transformers) burada yok: testler sahte bir encoder
+# kullanacak şekilde yazıldı, böylece CI hızlı kalıyor.
+#
+# faiss-cpu burada, çünkü k > doküman sayısı durumundaki regresyon testi
+# gerçek FAISS indeksine ihtiyaç duyuyor. Hatayı üreten şey FAISS'in -1
+# döndürmesi; sahte bir indeksle test edilirse test hatayı yakalamaz.
+# torch getirmediği için CI yine saniyeler içinde bitiyor.
 pandas
 numpy
 rank-bm25
+faiss-cpu
 pytest
