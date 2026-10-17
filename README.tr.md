@@ -84,12 +84,12 @@ pip install embedpick
 Kaynaktan kurmak için:
 
 ```bash
-git clone https://github.com/KULLANICI_ADINIZ/embedpick.git
+git clone https://github.com/Mehmetalpertugtekin/embedpick.git
 cd embedpick
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 source .venv/bin/activate     # macOS / Linux
-pip install -r requirements.txt
+pip install -e .
 ```
 
 Python 3.9+.
