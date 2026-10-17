@@ -87,13 +87,23 @@ class BM25Retriever:
         return sonuclar
 
 
+def _default_encoder(model_name):
+    # Import burada: sentence-transformers ağır bir paket, sadece gerçekten
+    # bir model yüklenecekse maliyetini ödüyoruz.
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name)
+
+
 class EmbeddingRetriever:
     """sentence-transformers modeli + FAISS iç çarpım indeksi.
 
     Vektörler normalize edildiği için iç çarpım = kosinüs benzerliği.
     """
 
-    def __init__(self, model_name, query_prefix=None, doc_prefix=None):
+    def __init__(
+        self, model_name, query_prefix=None, doc_prefix=None, encoder_factory=None
+    ):
         self.model_name = model_name
         self.label = model_name.split("/")[-1]
 
@@ -101,15 +111,18 @@ class EmbeddingRetriever:
         self.query_prefix = onekler["query"] if query_prefix is None else query_prefix
         self.doc_prefix = onekler["doc"] if doc_prefix is None else doc_prefix
 
+        # Model nesnesini dışarıdan verilebilir yaptık. Varsayılan davranış
+        # değişmiyor; testler sahte bir encoder geçirerek önekleri, id
+        # eşlemesini ve k sınırını model indirmeden doğrulayabiliyor.
+        self._encoder_factory = encoder_factory or _default_encoder
+
         self._model = None
         self._index = None
         self._ids = None
         self.dim = 0
 
     def index(self, corpus, repeats):
-        from sentence_transformers import SentenceTransformer
-
-        self._model = SentenceTransformer(self.model_name)
+        self._model = self._encoder_factory(self.model_name)
         texts = [self.doc_prefix + t for t in corpus["text"].tolist()]
 
         # Isınma: tüm korpusu bir kez geçiyoruz. Kısa bir ısınma turu
@@ -139,10 +152,17 @@ class EmbeddingRetriever:
         }
 
     def search(self, queries, k):
+        # FAISS, isteneni dolduramadığı yerlere -1 koyar. self._ids[-1]
+        # hata vermez, listenin son elemanını döndürür: 5 dokümanlık bir
+        # korpusta k=10 istendiğinde tablo uydurma isabetlerle şişer ve
+        # hiçbir uyarı çıkmaz. Ölçüm aracında sessiz yanlış, çökmekten
+        # daha kötüdür. BM25 tarafı zaten korpustan fazlasını döndürmüyor;
+        # iki yöntem aynı k'da aynı davranmalı.
+        k_eff = min(k, self._index.ntotal)
         texts = [self.query_prefix + q for q in queries]
         emb = self._encode(texts)
-        _, positions = self._index.search(np.asarray(emb, dtype="float32"), k)
-        return [[self._ids[p] for p in row] for row in positions]
+        _, positions = self._index.search(np.asarray(emb, dtype="float32"), k_eff)
+        return [[self._ids[p] for p in row if p != -1] for row in positions]
 
     def _encode(self, texts):
         return self._model.encode(
