@@ -2,7 +2,13 @@
 
 import pandas as pd
 
-from .metrics import bootstrap_ci, consensus_failures, recall_at_k, score_all
+from .metrics import (
+    bootstrap_ci,
+    consensus_failures,
+    recall_at_k,
+    score_all,
+    significant_difference,
+)
 from .retrievers import BM25Retriever, EmbeddingRetriever
 
 
@@ -91,6 +97,48 @@ def _add_relative_speed(satirlar):
         r["rel_speed"] = f"{r['docs_per_sec'] / en_hizli:.2f}x" if r["dim"] > 0 else "-"
 
 
+def baseline_comparison(sorgu_bazli):
+    """Her modeli BM25 baseline'ı ile eşleştirilmiş olarak kıyaslar.
+
+    Sütun bazlı güven aralıkları her yöntemin tek başına ne kadar oynadığını
+    gösterir ve üst üste binmeleri "fark yok" anlamına GELMEZ: aynı sorgular
+    üzerinde çalıştıkları için farkın belirsizliği, tek tek skorların
+    belirsizliğinden küçüktür. Karar vermek isteyen kişinin bakması gereken
+    sayı bu fonksiyonun döndürdüğü.
+    """
+    baseline = next((e for e in sorgu_bazli if e.startswith("BM25")), None)
+    if baseline is None or len(sorgu_bazli) < 2:
+        return None, []
+
+    sorgular = list(sorgu_bazli[baseline])
+    temel = [sorgu_bazli[baseline][q] for q in sorgular]
+
+    sonuclar = [
+        (etiket, significant_difference([skor[q] for q in sorgular], temel))
+        for etiket, skor in sorgu_bazli.items()
+        if etiket != baseline
+    ]
+    return baseline, sonuclar
+
+
+def _report_baseline_comparison(sorgu_bazli):
+    baseline, sonuclar = baseline_comparison(sorgu_bazli)
+    if not sonuclar:
+        return
+
+    print(f"\n{baseline} ile eşleştirilmiş fark (yüzde 95 güven aralığı):")
+    for etiket, s in sonuclar:
+        alt, ust = s["ci"]
+        karar = "anlamlı" if s["anlamli"] else "gösterilemedi"
+        print(f"  {etiket:<40} {s['fark']:+.3f}  [{alt:+.3f}, {ust:+.3f}]  {karar}")
+
+    if any(not s["anlamli"] for _, s in sonuclar):
+        print(
+            "  'gösterilemedi', farkın olmadığı anlamına gelmez; bu veri setinin"
+            "\n  o farkı göstermeye yetmediği anlamına gelir. Daha çok sorgu ekleyin."
+        )
+
+
 def report(df, sorgu_bazli, k):
     print()
     print(df.to_string(index=False))
@@ -101,9 +149,12 @@ def report(df, sorgu_bazli, k):
         "\n     (en hızlı sinirsel model = 1.00x)."
         f"\n     recall@{k}_ci, {len(next(iter(sorgu_bazli.values()), {}))} sorgu"
         " üzerinden bootstrap ile hesaplanmış yüzde 95 güven aralığıdır."
-        "\n     Aralıklar üst üste biniyorsa aradaki fark bu veri setinde"
-        " gösterilememiştir."
+        "\n     Her sütun tek başına ne kadar oynadığını gösterir; iki yöntemin"
+        "\n     FARKI için aşağıdaki eşleştirilmiş karşılaştırmaya bakın."
+        "\n     Üst üste binen aralıklar tek başına 'fark yok' demek değildir."
     )
+
+    _report_baseline_comparison(sorgu_bazli)
 
     # Tek yöntem varken "hiçbiri bulamadı" demek anlamsız; uyarının değeri
     # birden fazla yöntemin aynı sorguda batmasından geliyor.
