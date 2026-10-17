@@ -2,8 +2,23 @@
 
 import pandas as pd
 
-from .metrics import consensus_failures, recall_at_k, score_all
+from .metrics import bootstrap_ci, consensus_failures, recall_at_k, score_all
 from .retrievers import BM25Retriever, EmbeddingRetriever
+
+
+def _significant_digits(value, digits=3):
+    """Ölçümü taşıyabileceği hassasiyete yuvarlar.
+
+    docs_per_sec çalıştırmalar arasında kat kat oynuyor; tabloya 226486.3
+    yazmak, o sayının son hanesine güvendiğimizi iddia etmek demek.
+    Bir sayının hassasiyeti, ona ne kadar güvendiğimiz hakkında bir iddiadır.
+    """
+    if value <= 0:
+        return 0.0
+    from math import floor, log10
+
+    basamak = digits - 1 - int(floor(log10(abs(value))))
+    return round(value, basamak)
 
 
 def run_benchmark(
@@ -15,10 +30,11 @@ def run_benchmark(
     include_baseline=True,
     use_presets=True,
     verbose=False,
+    stemmer="none",
 ):
     retrievers = []
     if include_baseline:
-        retrievers.append(BM25Retriever())
+        retrievers.append(BM25Retriever(stemmer=stemmer))
 
     for name in model_names:
         if use_presets:
@@ -45,12 +61,15 @@ def run_benchmark(
             )
         }
 
+        alt, ust = bootstrap_ci(sorgu_bazli[retriever.label].values())
+
         satirlar.append(
             {
                 "model": retriever.label,
                 f"recall@{k}": round(recall, 3),
+                f"recall@{k}_ci": f"[{alt:.2f}, {ust:.2f}]",
                 f"mrr@{k}": round(mrr, 3),
-                "docs_per_sec": round(maliyet["docs_per_sec"], 1),
+                "docs_per_sec": _significant_digits(maliyet["docs_per_sec"]),
                 "dim": maliyet["dim"],
                 "index_mb": round(maliyet["index_mb"], 2),
             }
@@ -80,6 +99,10 @@ def report(df, sorgu_bazli, k):
         "\nNot: docs_per_sec makineye ve o anki işlemci durumuna göre değişir."
         "\n     Makineler arası kıyas için rel_speed sütununu kullanın"
         "\n     (en hızlı sinirsel model = 1.00x)."
+        f"\n     recall@{k}_ci, {len(next(iter(sorgu_bazli.values()), {}))} sorgu"
+        " üzerinden bootstrap ile hesaplanmış yüzde 95 güven aralığıdır."
+        "\n     Aralıklar üst üste biniyorsa aradaki fark bu veri setinde"
+        " gösterilememiştir."
     )
 
     # Tek yöntem varken "hiçbiri bulamadı" demek anlamsız; uyarının değeri

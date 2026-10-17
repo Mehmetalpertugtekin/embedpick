@@ -5,6 +5,8 @@ import time
 
 import numpy as np
 
+from .stemmers import get_stemmer
+
 # Bazı modeller metinlerin başına önek bekler. Önek konmazsa model kötü
 # çalışır ve kullanıcı bunu "model kötüymüş" diye yorumlar. Bilinenleri
 # burada tutuyoruz ki varsayılan davranış doğru olsun.
@@ -36,26 +38,52 @@ def get_prefixes(model_name):
     return {"query": "", "doc": ""}
 
 
-def tr_tokenize(text):
-    """Türkçe farkındalıklı basit kelime ayırıcı.
+def tr_lower(word):
+    """Tek kelimeyi Türkçe kurallarına göre küçültür.
 
     Python'un lower() metodu Türkçe bilmez: "I" -> "i" yapar, oysa "ı" olmalı.
     "İ" ise "i" artı ayrı bir birleşen nokta karakterine bölünür.
+
+    Ama kuralı koşulsuz uygularsak "IBAN" -> "ıban", "ISO" -> "ıso" olur ve
+    Türkçe destek korpusları İngilizce kısaltma doludur. Tamamı büyük harf
+    ve tamamı ASCII olan kelimeleri kısaltma sayıp düz lower() uyguluyoruz;
+    "IŞIK" gibi Türkçe harf içerenler Türkçe kuralına gidiyor.
     """
-    text = text.replace("I", "ı").replace("İ", "i")
-    return re.findall(r"\w+", text.lower(), flags=re.UNICODE)
+    if word.isupper() and word.isascii():
+        return word.lower()
+    return word.replace("I", "ı").replace("İ", "i").lower()
+
+
+def tr_tokenize(text, stemmer=None):
+    """Türkçe farkındalıklı basit kelime ayırıcı.
+
+    stemmer verilirse her terim gövdelenir; bkz. embedpick.stemmers.
+    """
+    tokens = (tr_lower(t) for t in re.findall(r"\w+", text, flags=re.UNICODE))
+    if stemmer is None:
+        return list(tokens)
+    return [stemmer(t) for t in tokens]
 
 
 class BM25Retriever:
     """Kelime bazlı baseline. Embedding modelleri bunu geçemiyorsa
     harcanan hesap gücü boşa gidiyor demektir."""
 
-    label = "BM25 (baseline)"
     dim = 0
 
-    def __init__(self):
+    def __init__(self, stemmer="none"):
+        self.stemmer_name = stemmer
+        self._stemmer = get_stemmer(stemmer)
+        self.label = (
+            "BM25 (baseline)"
+            if stemmer == "none"
+            else f"BM25 (baseline, {stemmer} stem)"
+        )
         self._bm25 = None
         self._ids = None
+
+    def _tokenize(self, text):
+        return tr_tokenize(text, self._stemmer)
 
     def index(self, corpus, repeats):
         from rank_bm25 import BM25Okapi
@@ -64,7 +92,7 @@ class BM25Retriever:
         timings = []
         for _ in range(repeats):
             start = time.perf_counter()
-            tokenized = [tr_tokenize(t) for t in texts]
+            tokenized = [self._tokenize(t) for t in texts]
             bm25 = BM25Okapi(tokenized)
             timings.append(time.perf_counter() - start)
 
@@ -81,7 +109,7 @@ class BM25Retriever:
     def search(self, queries, k):
         sonuclar = []
         for q in queries:
-            scores = self._bm25.get_scores(tr_tokenize(q))
+            scores = self._bm25.get_scores(self._tokenize(q))
             top = np.argsort(-scores)[:k]
             sonuclar.append([self._ids[i] for i in top])
         return sonuclar

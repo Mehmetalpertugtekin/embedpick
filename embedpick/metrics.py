@@ -38,6 +38,41 @@ def score_all(all_retrieved, queries, k, verbose=False):
     return float(np.mean(recalls)), float(np.mean(rrs))
 
 
+def bootstrap_ci(scores, n=2000, seed=0, alpha=0.05):
+    """Ortalamanın yüzde 95 güven aralığı, bootstrap ile.
+
+    26 sorguluk bir veri setinde 0.692 ile 0.750 arasındaki fark yaklaşık
+    1.5 sorgu demek; bu, gürültüden ayırt edilemez. Tabloya aralık koymadan
+    iki modeli kıyaslamak, olmayan bir farkı varmış gibi raporlamaktır.
+
+    seed sabit: aynı veride aynı aralığı üretsin, tablo çalıştırmadan
+    çalıştırmaya oynamasın.
+    """
+    arr = np.asarray(list(scores), dtype=float)
+    if arr.size == 0:
+        return (float("nan"), float("nan"))
+
+    rng = np.random.default_rng(seed)
+    orneklemler = arr[rng.integers(0, arr.size, size=(n, arr.size))].mean(axis=1)
+    alt = float(np.percentile(orneklemler, 100 * alpha / 2))
+    ust = float(np.percentile(orneklemler, 100 * (1 - alpha / 2)))
+    return alt, ust
+
+
+def significant_difference(scores_a, scores_b, n=2000, seed=0, alpha=0.05):
+    """İki yöntemin farkı sıfırdan ayırt edilebiliyor mu.
+
+    Eşleştirilmiş bootstrap: aynı sorgular üzerinde fark alınıyor, çünkü
+    sorguların zorluğu ortak. Aralık sıfırı içeriyorsa fark bu veri setinde
+    gösterilememiş demektir — yokluğunun kanıtı değil, varlığının kanıtsızlığı.
+    """
+    fark = np.asarray(list(scores_a), dtype=float) - np.asarray(
+        list(scores_b), dtype=float
+    )
+    alt, ust = bootstrap_ci(fark, n=n, seed=seed, alpha=alpha)
+    return {"fark": float(fark.mean()), "ci": (alt, ust), "anlamli": alt > 0 or ust < 0}
+
+
 def consensus_failures(per_model_scores, threshold=0.0):
     """Hiçbir modelin bulamadığı sorguları döndürür.
 

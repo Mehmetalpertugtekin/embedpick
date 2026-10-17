@@ -31,6 +31,7 @@ from embedpick.benchmark import run_benchmark
 from embedpick.data import load_corpus, load_queries, validate
 from embedpick.metrics import consensus_failures
 from embedpick.retrievers import DEFAULT_MODELS
+from embedpick.stemmers import CHOICES as STEMMER_CHOICES
 
 REPO = "https://github.com/Mehmetalpertugtekin/embedpick"
 
@@ -134,7 +135,9 @@ edenler onlar.
 
 
 @gpu_gorevi
-def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, presets):
+def calistir(
+    corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, presets, stemmer
+):
     if corpus_dosya is None or queries_dosya is None:
         return None, None, "İki CSV dosyasını da yükleyin."
 
@@ -161,6 +164,7 @@ def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, pres
             repeats=3,
             include_baseline=baseline,
             use_presets=presets,
+            stemmer=stemmer,
         )
     except Exception as exc:
         return None, None, f"Çalıştırma hatası:\n\n```\n{type(exc).__name__}: {exc}\n```"
@@ -176,6 +180,17 @@ def calistir(corpus_dosya, queries_dosya, secili, ek_modeller, k, baseline, pres
         notlar.append(
             "Model önekleri kapalı. e5 gibi önek bekleyen modeller düşük skor alır."
         )
+    if baseline and stemmer == "none":
+        notlar.append(
+            "BM25 gövdelemesiz çalıştı. Türkçe sondan eklemeli olduğu için "
+            "baseline olduğundan zayıf görünür ve modellerle arasındaki fark "
+            "olduğundan büyük çıkar. `simple` ile tekrar deneyin."
+        )
+    notlar.append(
+        f"`recall@{int(k)}_ci`, {len(queries)} sorgu üzerinden bootstrap ile "
+        "hesaplanmış yüzde 95 güven aralığıdır. Aralıklar üst üste biniyorsa "
+        "aradaki fark bu veri setinde gösterilememiştir."
+    )
 
     ortak = consensus_failures(sorgu_bazli) if len(sorgu_bazli) > 1 else []
     if ortak:
@@ -226,6 +241,16 @@ with gr.Blocks(title="embedpick") as demo:
                 value=True, label="Bilinen model öneklerini uygula"
             )
 
+        stemmer_secimi = gr.Radio(
+            choices=list(STEMMER_CHOICES),
+            value="simple",
+            label="BM25 baseline'ında Türkçe gövdeleme",
+            info=(
+                "Gövdelemesiz baseline 'iade' ile 'iadesi'yi ilgisiz iki terim "
+                "sayar ve olduğundan zayıf görünür. zemberek ayrı kurulum ister."
+            ),
+        )
+
         gr.Markdown(
             "İlk çalıştırmada modeller indirilir, birkaç dakika sürebilir. "
             "Sonraki çalıştırmalar önbellekten okur."
@@ -249,6 +274,7 @@ with gr.Blocks(title="embedpick") as demo:
             k_secimi,
             baseline_secimi,
             preset_secimi,
+            stemmer_secimi,
         ],
         outputs=[sonuc_tablosu, detay_tablosu, durum],
     )
