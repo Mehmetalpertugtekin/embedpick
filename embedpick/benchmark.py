@@ -38,6 +38,15 @@ def run_benchmark(
     verbose=False,
     stemmer="none",
 ):
+    # Doğrulama burada, CLI'da değil: Gradio arayüzü ve kütüphaneyi doğrudan
+    # çağıran kod da aynı kapıdan geçiyor. repeats=0 ölçüm döngüsünü hiç
+    # döndürmüyor ve sonrasında UnboundLocalError veriyordu; k=0 ise sessizce
+    # boş sonuç listeleri üretip tüm skorları 0 gösteriyor ki bu daha kötü.
+    if repeats < 1:
+        raise ValueError(f"repeats en az 1 olmalı, verilen: {repeats}")
+    if k < 1:
+        raise ValueError(f"k en az 1 olmalı, verilen: {k}")
+
     retrievers = []
     if include_baseline:
         retrievers.append(BM25Retriever(stemmer=stemmer))

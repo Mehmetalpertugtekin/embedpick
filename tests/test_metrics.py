@@ -3,8 +3,8 @@ import pytest
 
 from embedpick.metrics import (
     consensus_failures,
-    reciprocal_rank,
     recall_at_k,
+    reciprocal_rank,
     score_all,
 )
 
