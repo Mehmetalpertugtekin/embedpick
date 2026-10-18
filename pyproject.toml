@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "embedpick"
-version = "0.1.1"
+version = "0.2.0"
 description = "Benchmark embedding models on your own data, with a keyword-search baseline"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -56,6 +56,20 @@ Issues = "https://github.com/Mehmetalpertugtekin/embedpick/issues"
 
 [project.scripts]
 embedpick = "embedpick.cli:main"
+
+[tool.ruff]
+# Kural kümesi açıkça yazılı: ruff'ın varsayılanı sürümle birlikte değişiyor
+# ve CI'ın bir gün kendiliğinden kırmızıya dönmesini istemiyoruz.
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # import sıralaması
+    "UP",  # eski Python kalıpları
+    "B",   # bugbear: sessiz hata kaynakları
+]
 
 [tool.setuptools.packages.find]
 include = ["embedpick*"]

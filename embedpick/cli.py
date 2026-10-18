@@ -4,10 +4,27 @@ import argparse
 import sys
 from importlib import resources
 
+from . import __version__
 from .benchmark import report, run_benchmark
 from .data import load_corpus, load_queries, validate
 from .retrievers import DEFAULT_MODELS
 from .stemmers import CHOICES as STEMMER_CHOICES
+
+
+def pozitif_tamsayi(metin):
+    """argparse tipi: 1 ve üzeri tam sayı.
+
+    --repeats 0 verildiğinde ölçüm döngüsü hiç dönmüyor ve döngü içinde
+    atanan değişkenler sonrasında UnboundLocalError ile patlıyordu. Kullanıcı
+    bunu kendi hatası olarak okuyamaz; girdi daha parser aşamasında reddedilsin.
+    """
+    try:
+        deger = int(metin)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"tam sayı olmalı: {metin!r}") from None
+    if deger < 1:
+        raise argparse.ArgumentTypeError(f"1 veya daha büyük olmalı: {deger}")
+    return deger
 
 
 def sample_path(name):
@@ -28,6 +45,11 @@ def build_parser():
         ),
     )
     p.add_argument(
+        "--version",
+        action="version",
+        version=f"embedpick {__version__}",
+    )
+    p.add_argument(
         "--corpus",
         help="Aranacak dokümanlar (sütunlar: id,text). "
         "Verilmezse pakete gömülü örnek veri kullanılır.",
@@ -43,9 +65,17 @@ def build_parser():
         default=DEFAULT_MODELS,
         help="Hugging Face model adları, boşlukla ayrılmış",
     )
-    p.add_argument("-k", type=int, default=5, help="İlk kaç sonuç değerlendirilsin")
     p.add_argument(
-        "--repeats", type=int, default=5, help="Hız ölçümü kaç kez tekrarlansın"
+        "-k",
+        type=pozitif_tamsayi,
+        default=5,
+        help="İlk kaç sonuç değerlendirilsin (en az 1)",
+    )
+    p.add_argument(
+        "--repeats",
+        type=pozitif_tamsayi,
+        default=5,
+        help="Hız ölçümü kaç kez tekrarlansın (en az 1)",
     )
     p.add_argument(
         "--no-baseline",

@@ -45,10 +45,15 @@ def paket_dosyasi(ad):
 # yalnızca işlemci üzerinde ölçüldü.
 YEDEK_SONUCLAR = pd.DataFrame(
     [
-        ["BM25 (baseline, simple stem)", 0.654, "[0.50, 0.81]", 0.622, 32000.0, 0, 0.00, "-"],
-        ["paraphrase-multilingual-MiniLM-L12-v2", 0.615, "[0.46, 0.77]", 0.596, 374.0, 384, 0.11, "1.00x"],
-        ["multilingual-e5-small", 0.692, "[0.56, 0.81]", 0.708, 322.0, 384, 0.11, "0.86x"],
-        ["turkish-embedding-model", 0.846, "[0.73, 0.94]", 0.865, 119.0, 768, 0.21, "0.32x"],
+        # model, recall@5, GA, mrr@5, doküman/sn, boyut, MB, göreli hız
+        ["BM25 (baseline, simple stem)",
+         0.654, "[0.50, 0.81]", 0.622, 32000.0, 0, 0.00, "-"],
+        ["paraphrase-multilingual-MiniLM-L12-v2",
+         0.615, "[0.46, 0.77]", 0.596, 374.0, 384, 0.11, "1.00x"],
+        ["multilingual-e5-small",
+         0.692, "[0.56, 0.81]", 0.708, 322.0, 384, 0.11, "0.86x"],
+        ["turkish-embedding-model",
+         0.846, "[0.73, 0.94]", 0.865, 119.0, 768, 0.21, "0.32x"],
     ],
     columns=[
         "model",
@@ -177,7 +182,8 @@ def calistir(
             stemmer=stemmer,
         )
     except Exception as exc:
-        return None, None, f"Çalıştırma hatası:\n\n```\n{type(exc).__name__}: {exc}\n```"
+        hata = f"{type(exc).__name__}: {exc}"
+        return None, None, f"Çalıştırma hatası:\n\n```\n{hata}\n```"
 
     detay = pd.DataFrame(sorgu_bazli)
     detay.insert(0, "sorgu", detay.index)

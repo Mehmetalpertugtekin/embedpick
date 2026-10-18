@@ -24,12 +24,80 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        # Test bağımlılıkları yalnızca. torch, sentence-transformers ve faiss
-        # kurulmuyor: testler model indirmeye dokunmadan çalışacak şekilde
-        # yazıldı, böylece CI saniyeler içinde bitiyor.
+        # Test bağımlılıkları yalnızca. torch ve sentence-transformers
+        # kurulmuyor: testler sahte encoder kullanıyor, böylece CI saniyeler
+        # içinde bitiyor. faiss-cpu gerekli, çünkü k > doküman sayısı
+        # regresyon testi gerçek FAISS indeksine bakıyor.
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Install the package itself
+        # --no-deps: torch'u çekmeden paket metadata'sı kurulsun. Bu olmadan
+        # importlib.metadata.version("embedpick") PackageNotFoundError veriyor
+        # ve sürüm testi temiz checkout'ta kırmızı oluyor.
+        run: pip install -e . --no-deps
+
       - name: Run tests
         run: python -m pytest -v
+
+  package:
+    # Testler depo kökünden çalışıyor (conftest.py kökü sys.path'e ekliyor),
+    # yani kurulu paketin yolunu hiç denemiyorlar. package-data bozulsa
+    # yukarıdaki iş yeşil kalır ve "pip install embedpick && embedpick"
+    # kullanıcıda FileNotFoundError verir — ki asıl varsayılan yol o.
+    # Bu iş tam olarak o yolu deniyor.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+
+      - name: Install the built wheel
+        # --no-deps bilinçli: torch'u çekmeden kurulum yolunu test ediyoruz.
+        # Paketin ağır bağımlılıkları (sentence-transformers, faiss) zaten
+        # tembel import ediliyor, --help ve veri yolu onlara dokunmuyor.
+        run: |
+          pip install --no-deps dist/*.whl
+          pip install pandas numpy rank-bm25
+
+      - name: Smoke test the installed package
+        # Depo kökünden çalıştırmıyoruz: orada embedpick/ klasörü var ve
+        # kurulu paket yerine kaynak ağaç import edilir, test anlamsızlaşır.
+        working-directory: /tmp
+        run: |
+          embedpick --help
+          embedpick --version
+          python -c "
+          from embedpick.cli import sample_path
+          from embedpick.data import load_corpus, load_queries, validate
+          corpus = load_corpus(sample_path('corpus.csv'))
+          queries = load_queries(sample_path('queries.csv'))
+          validate(corpus, queries)
+          print(f'bundled data ok: {len(corpus)} docs, {len(queries)} queries')
+          "
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Run ruff
+        run: |
+          python -m pip install --upgrade pip ruff
+          ruff check .
