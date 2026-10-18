@@ -14,10 +14,19 @@ from importlib import resources
 # ZeroGPU donanımında çalışırken bu import torch'tan ÖNCE gelmeli.
 # Kendi makinenizde `spaces` kurulu olmayacaktır; o durumda sarmalayıcı
 # hiçbir şey yapmayan bir dekoratöre dönüşür ve uygulama normal çalışır.
+#
+# duration bir rezervasyon talebi, üst sınır değil: hesap seviyesinin
+# tavanını aşan bir talep işi hiç başlatmadan reddediliyor ve kullanıcı
+# "requested GPU duration is larger than the maximum allowed" görüyor.
+# Eskiden 300 isteniyordu; bu veri seti için fazlasıyla cömert, çünkü asıl
+# maliyet model indirme (GPU'suz) ve 72 dokümanı kodlamak saniyeler sürüyor.
+# Kısa talep ayrıca kuyrukta öne geçiriyor.
+GPU_SURESI = 120
+
 try:
     import spaces
 
-    gpu_gorevi = spaces.GPU(duration=300)
+    gpu_gorevi = spaces.GPU(duration=GPU_SURESI)
 except Exception:
 
     def gpu_gorevi(fn):
@@ -269,7 +278,11 @@ with gr.Blocks(title="embedpick") as demo:
 
         gr.Markdown(
             "İlk çalıştırmada modeller indirilir, birkaç dakika sürebilir. "
-            "Sonraki çalıştırmalar önbellekten okur."
+            "Sonraki çalıştırmalar önbellekten okur.\n\n"
+            f"Bu Space'te her çalıştırma için {GPU_SURESI} saniyelik bir GPU "
+            "payı ayrılıyor. Çok büyük bir korpus yüklerseniz süre dolabilir; "
+            "o durumda model sayısını azaltın ya da paketi kendi makinenizde "
+            "çalıştırın: `pip install embedpick`."
         )
 
         calistir_dugmesi = gr.Button("Çalıştır", variant="primary")

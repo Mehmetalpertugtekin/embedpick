@@ -71,6 +71,12 @@ select = [
     "B",   # bugbear: sessiz hata kaynakları
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# app.py'de import sırası bilinçli: ZeroGPU'da `spaces` paketi torch'tan
+# ÖNCE import edilmek zorunda, o yüzden dosyanın başında bir try/except ve
+# GPU süresi sabiti duruyor. E402 bunu "geç import" sanıyor.
+"app.py" = ["E402"]
+
 [tool.setuptools.packages.find]
 include = ["embedpick*"]
 

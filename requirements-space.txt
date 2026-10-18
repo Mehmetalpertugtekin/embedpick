@@ -1,5 +1,8 @@
 # Hugging Face Spaces için requirements.txt içeriği.
 # Yayınlanmış paketi ve gradio'yu getirir; spaces kütüphanesi
 # ZeroGPU donanımı için gereklidir.
-embedpick[ui]
+# Sürüm alt sınırı bilinçli: sabitlenmemiş bir bağımlılıkta Space eski bir
+# derlemeyi önbellekten kullanmaya devam edebiliyor. 0.2.0, k > doküman
+# sayısı hatasının düzeldiği ve gövdelemenin eklendiği ilk sürüm.
+embedpick[ui]>=0.2.0
 spaces
