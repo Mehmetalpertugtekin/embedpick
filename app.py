@@ -110,7 +110,11 @@ HAZIR_ACIKLAMA = """
 
 72 sentetik Türkçe müşteri destek mesajı, 26 etiketli sorgu, k=5.
 Baseline gövdelenmiş halde (`--stemmer simple`) çalıştırıldı.
+"""
 
+# Yorum kısmı katlanmış duruyor: tablo ve çalıştırma paneli ilk ekranda
+# kalsın diye. Metin değerli ama aracı kullanmanın önüne geçmemeli.
+YORUM = """
 Baseline'a göre eşleştirilmiş fark, %95 güven aralığıyla:
 
 | Model | fark | %95 GA | sonuç |
@@ -130,10 +134,6 @@ için `rel_speed` sütununu kullanın.
 """
 
 NASIL = """
-### Kendi verinizle çalıştırın
-
-İki CSV dosyası yükleyin:
-
 **corpus.csv** — aranacak dokümanlar
 
 ```
@@ -230,14 +230,37 @@ def calistir(
     return df, detay, "\n\n".join(notlar)
 
 
-with gr.Blocks(title="embedpick") as demo:
+# Gradio'nun ana kabı varsayılan olarak görünür alan yüksekliğinde ve
+# overflow-y: hidden geliyor; sayfa büyüdüğünde alt kısım kırpılıyor ve
+# kullanıcı fareyle aşağı kaydıramıyor. Space bir iframe içinde gömülü
+# gösterildiğinde özellikle can sıkıcı: Çalıştır butonu erişilemez oluyor.
+# Kabı içeriğe göre büyümeye bırakıyoruz.
+CSS = """
+.gradio-container {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: visible !important;
+}
+"""
+
+with gr.Blocks(title="embedpick", css=CSS) as demo:
     gr.Markdown(GIRIS)
 
     gr.Markdown(HAZIR_ACIKLAMA)
     gr.Dataframe(value=hazir_sonuclar(), interactive=False, wrap=True)
 
+    with gr.Accordion("Bu tablo ne anlatıyor?", open=False):
+        gr.Markdown(YORUM)
+
     with gr.Accordion("Kendi verinizle çalıştırın", open=False):
-        gr.Markdown(NASIL)
+        # Düzen kasten sıkışık: iki yükleme kutusu, sonra doğrudan Çalıştır.
+        # Önceki sürümde biçim açıklaması ve bütün ayarlar butonun üstündeydi,
+        # buton ekranın altında kalıyordu ve kullanıcı aracı çalıştıramadan
+        # vazgeçiyordu. Varsayılanlar zaten makul; ayarlar katlanmış duruyor.
+        gr.Markdown(
+            "İki CSV yükleyin ve **Çalıştır**'a basın. Varsayılan ayarlar makul; "
+            "biçim örneği ve ayarlar aşağıdaki başlıklarda."
+        )
 
         with gr.Row():
             corpus_yukle = gr.File(
@@ -247,45 +270,48 @@ with gr.Blocks(title="embedpick") as demo:
                 label="queries.csv", file_types=[".csv"], type="filepath"
             )
 
-        model_secimi = gr.CheckboxGroup(
-            choices=DEFAULT_MODELS,
-            value=DEFAULT_MODELS[:2],
-            label="Modeller",
-        )
-        ek_model = gr.Textbox(
-            label="Ek modeller (Hugging Face adı, virgülle ayırın)",
-            placeholder="intfloat/multilingual-e5-base, BAAI/bge-m3",
-        )
-
-        with gr.Row():
-            k_secimi = gr.Slider(1, 20, value=5, step=1, label="k (ilk kaç sonuç)")
-            baseline_secimi = gr.Checkbox(
-                value=True, label="BM25 baseline'ı dahil et"
+        with gr.Accordion("Ayarlar", open=False):
+            model_secimi = gr.CheckboxGroup(
+                choices=DEFAULT_MODELS,
+                value=DEFAULT_MODELS[:2],
+                label="Modeller",
             )
-            preset_secimi = gr.Checkbox(
-                value=True, label="Bilinen model öneklerini uygula"
+            ek_model = gr.Textbox(
+                label="Ek modeller (Hugging Face adı, virgülle ayırın)",
+                placeholder="intfloat/multilingual-e5-base, BAAI/bge-m3",
             )
 
-        stemmer_secimi = gr.Radio(
-            choices=list(STEMMER_CHOICES),
-            value="simple",
-            label="BM25 baseline'ında Türkçe gövdeleme",
-            info=(
-                "Gövdelemesiz baseline 'iade' ile 'iadesi'yi ilgisiz iki terim "
-                "sayar ve olduğundan zayıf görünür. zemberek ayrı kurulum ister."
-            ),
-        )
+            with gr.Row():
+                k_secimi = gr.Slider(1, 20, value=5, step=1, label="k (ilk kaç sonuç)")
+                baseline_secimi = gr.Checkbox(
+                    value=True, label="BM25 baseline'ı dahil et"
+                )
+                preset_secimi = gr.Checkbox(
+                    value=True, label="Bilinen model öneklerini uygula"
+                )
 
-        gr.Markdown(
-            "İlk çalıştırmada modeller indirilir, birkaç dakika sürebilir. "
-            "Sonraki çalıştırmalar önbellekten okur.\n\n"
-            f"Bu Space'te her çalıştırma için {GPU_SURESI} saniyelik bir GPU "
-            "payı ayrılıyor. Çok büyük bir korpus yüklerseniz süre dolabilir; "
-            "o durumda model sayısını azaltın ya da paketi kendi makinenizde "
-            "çalıştırın: `pip install embedpick`."
-        )
+            stemmer_secimi = gr.Radio(
+                choices=list(STEMMER_CHOICES),
+                value="simple",
+                label="BM25 baseline'ında Türkçe gövdeleme",
+                info=(
+                    "Gövdelemesiz baseline 'iade' ile 'iadesi'yi ilgisiz iki terim "
+                    "sayar ve olduğundan zayıf görünür. zemberek ayrı kurulum ister."
+                ),
+            )
+
+        with gr.Accordion("CSV biçimi", open=False):
+            gr.Markdown(NASIL)
 
         calistir_dugmesi = gr.Button("Çalıştır", variant="primary")
+
+        gr.Markdown(
+            "İlk çalıştırmada modeller indirilir, birkaç dakika sürebilir; "
+            "sonraki çalıştırmalar önbellekten okur. Her çalıştırma için "
+            f"{GPU_SURESI} saniyelik bir GPU payı ayrılıyor — çok büyük bir "
+            "korpusta süre dolarsa model sayısını azaltın ya da paketi kendi "
+            "makinenizde çalıştırın: `pip install embedpick`."
+        )
 
         durum = gr.Markdown()
         sonuc_tablosu = gr.Dataframe(label="Sonuçlar", interactive=False, wrap=True)
